@@ -308,6 +308,40 @@ test('should_free_the_lock_after_every_ending_including_consecutive_failures', a
   assert.equal(service.getHistory().filter((message) => message.role === 'user').length, 2);
 });
 
+test('should_cancel_even_when_stop_arrives_before_the_stream_starts', async () => {
+  const { service } = createService({
+    map: { stream: (messages, handlers) => makeHandle(handlers, ['کند'], { delayMs: 20 }) },
+  });
+
+  const pending = service.send({ text: 'سلام' }, { onText: () => {} });
+  service.stop();
+  const handle = await pending;
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'cancelled');
+  assert.equal(service.getHistory()[1]?.parts[0].text ?? '', '');
+});
+
+test('should_cut_the_in_flight_answer_when_the_conversation_is_cleared', async () => {
+  const { service, published } = createService({
+    map: { stream: (messages, handlers) => makeHandle(handlers, ['تکه'], { delayMs: 50 }) },
+  });
+
+  const pending = service.send({ text: 'سلام' }, { onText: () => {} });
+  await sleep(5);
+  service.clear();
+  const handle = await pending;
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'cancelled');
+  assert.equal(service.getHistory().length, 0);
+  assert.deepEqual(published.at(-1), { type: 'chat:history-cleared', data: undefined });
+  // After every ending the lock is free again.
+  const next = await service.send({ text: 'دوباره' }, { onText: () => {} });
+  await next.done;
+  assert.equal(service.getHistory().length, 2);
+});
+
 // --- validation -----------------------------------------------------------
 
 test('should_reject_empty_messages_without_touching_history', async () => {

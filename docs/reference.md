@@ -52,7 +52,7 @@ No user message in history → `CHAT_NO_RETRY_TARGET`.
 
 ### `clear()`
 
-Empties the conversation and publishes `chat:history-cleared`.
+Empties the conversation and publishes `chat:history-cleared`. Clearing also cuts an in-flight answer (its ending is `cancelled`), so no generation can register into a conversation that no longer exists.
 
 ### `getHistory()`
 
