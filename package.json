@@ -1,0 +1,37 @@
+{
+  "name": "pey.chat",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Single in-memory conversation with a language model: history, system instruction, per-message context, progressive delivery, stop and retry, sending-history cap",
+  "exports": {
+    ".": "./index.js",
+    "./manifest.json": "./manifest.json",
+    "./lib/constants.js": "./lib/constants.js",
+    "./lib/error.js": "./lib/error.js",
+    "./lib/chat-service.js": "./lib/chat-service.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "files": [
+    "manifest.json",
+    "index.js",
+    "lib/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs"
+  ],
+  "keywords": [
+    "pey",
+    "chat",
+    "llm",
+    "conversation",
+    "bonyan"
+  ],
+  "license": "MIT"
+}
