@@ -655,3 +655,62 @@ test('should_fall_back_to_defaults_when_the_config_values_are_unusable', async (
   assert.equal(wire.length, 1);
   assert.equal(wire[0].role, 'user');
 });
+
+// --- second review pass: cancel/done boundary hygiene ----------------------
+
+test('should_end_interrupted_when_transport_done_rejects_raw', async () => {
+  const { service } = createService({
+    map: {
+      stream: (messages, handlers) => makeHandle(handlers, [], {
+        ending: 'interrupted',
+        error: new Error('raw pey.llm bug'),
+      }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'interrupted');
+  assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR');
+});
+
+test('should_reject_with_a_structured_error_when_transport_done_rejects_raw', async () => {
+  // The contract says done NEVER rejects: a broken pey.llm done promise
+  // must land as a structured interruption, not a raw throw.
+  const { service } = createService({
+    map: {
+      stream: () => ({
+        cancel() {},
+        done: Promise.reject(new Error('raw rejection from pey.llm')),
+      }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'interrupted');
+  assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR');
+});
+
+test('should_swallow_a_throwing_cancel_when_stop_clear_and_deactivate_cancel', async () => {
+  const { service, deactivate, published } = createService({
+    map: {
+      stream: (messages, handlers) => makeHandle(handlers, [], {
+        ending: 'interrupted',
+        error: { code: 'LLM_REQUEST_FAILED', message: 'x', source: 'pey.llm', type: 'operational', timestamp: 't' },
+      }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  handle.cancel = () => {
+    throw new Error('pey.llm cancel is broken');
+  };
+
+  assert.doesNotThrow(() => service.stop(), 'a broken cancel must not cross stop');
+  assert.doesNotThrow(() => service.clear(), 'a broken cancel must not cross clear');
+  assert.doesNotThrow(() => deactivate(), 'a broken cancel must never reach teardown or the shutdown cycle');
+  assert.equal(published.filter((event) => event.type === 'chat:history-cleared').length, 1);
+});

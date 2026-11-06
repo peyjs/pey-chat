@@ -4,6 +4,13 @@
 
 ### Fixed
 
+- The raw-`pey.llm` boundary is now closed on every path: a rejecting `transport.done` lands as a structured interruption (done never rejects), and a throwing `transport.cancel` is swallowed at the handle, `stop`, `clear` and `deactivate` (it can never reach teardown or the shutdown cycle).
+- `SERVICE_UNAVAILABLE` is declared in the manifest for `stop`, `clear` and `getHistory` (they refuse after deactivation like `send`/`retry`), and the manifest contract test now locks every method's error list.
+- A `completed` ending for a generation whose conversation was cleared mid-flight no longer publishes `chat:message-completed` for a message that exists in no history.
+- The stale `PLUGIN_VERSION` constant is gone; `normalizeLlmError` lives in `lib/error.js`; per-source test files added for `chat-history` and `constants` (55 tests).
+
+### Fixed
+
 - The system instruction now counts **inside** the `maxChars` budget (system + history together), matching the requirement wording; previously the effective budget was `maxChars + systemChars`.
 - Raw errors from `pey.llm` no longer cross the boundary: structured errors (`code` + `source`) pass through unchanged, anything else is wrapped as `CHAT_LLM_MALFORMED_ERROR` — including a synchronous throw from `llm.stream` and raw mid-stream errors.
 - All five methods (`send`, `stop`, `retry`, `clear`, `getHistory`) refuse with `SERVICE_UNAVAILABLE` after deactivation/shutdown.

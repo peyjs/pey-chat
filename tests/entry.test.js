@@ -89,6 +89,15 @@ test('should_match_manifest_contract_when_loaded', async () => {
   assert.equal(manifest.provides[0].name, 'pey.chat.service');
   const methodNames = manifest.provides[0].methods.map((method) => method.name);
   assert.deepEqual(methodNames, ['send', 'stop', 'retry', 'clear', 'getHistory']);
+  // Every method that can refuse after deactivation must declare it, and
+  // the raw-llm wrapper code must be declared where it can surface.
+  const errorsOf = (name) => manifest.provides[0].methods.find((method) => method.name === name).errors;
+  for (const name of ['send', 'stop', 'retry', 'clear', 'getHistory']) {
+    assert.ok(errorsOf(name).includes('SERVICE_UNAVAILABLE'), `${name} must declare SERVICE_UNAVAILABLE`);
+  }
+  for (const name of ['send', 'retry']) {
+    assert.ok(errorsOf(name).includes('CHAT_LLM_MALFORMED_ERROR'), `${name} must declare CHAT_LLM_MALFORMED_ERROR`);
+  }
   assert.deepEqual(manifest.events.map((event) => event.name), ['chat:message-completed', 'chat:history-cleared']);
   assert.deepEqual(manifest.config, { systemInstruction: '', maxTurns: 10, maxChars: 20000 });
 });

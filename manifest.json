@@ -28,7 +28,7 @@
           "description": "Cancels the answer currently being generated, if any. The partial text received so far stays in history marked incomplete. A no-op when nothing is in flight.",
           "params": [],
           "returns": "{ ok: true }",
-          "errors": []
+          "errors": ["SERVICE_UNAVAILABLE"]
         },
         {
           "name": "retry",
@@ -44,14 +44,14 @@
           "description": "Empties the conversation and publishes chat:history-cleared.",
           "params": [],
           "returns": "{ ok: true }",
-          "errors": []
+          "errors": ["SERVICE_UNAVAILABLE"]
         },
         {
           "name": "getHistory",
           "description": "Returns a read-only copy of the conversation: every message with its unique id, role, content parts (the user's message carries its context), status ('complete' or 'incomplete') and timestamp. Untouched by the sending-history cap — the cap trims only what goes to the model.",
           "params": [],
           "returns": "Array<{ id: string, role: 'user'|'assistant', parts: Array<object>, status: string, at: number }>",
-          "errors": []
+          "errors": ["SERVICE_UNAVAILABLE"]
         }
       ]
     }
