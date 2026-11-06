@@ -1,11 +1,29 @@
 // Wires the chat service into Bonyan's two-phase plugin lifecycle.
 
-import { LLM_SERVICE, SERVICE_NAME } from './lib/constants.js';
+import { LLM_SERVICE, PLUGIN_NAME, SERVICE_NAME } from './lib/constants.js';
 import { createChatService } from './lib/chat-service.js';
 
 const state = { llm: null, events: null, config: {} };
 let savedContext = null;
 let lifecycle = null;
+let unsubscribeUnavailable = null;
+
+/**
+ * Releases this prepare() call's resources: the dependency reference and
+ * the module-level handles go away and the core:service-unavailable
+ * listener leaves the Event Bus, so a lost-dependency event after shutdown
+ * can never report a critical error for a dead plugin.
+ */
+function teardown() {
+  state.llm = null;
+  lifecycle?.deactivate();
+  lifecycle = null;
+  savedContext = null;
+  if (unsubscribeUnavailable !== null) {
+    unsubscribeUnavailable();
+    unsubscribeUnavailable = null;
+  }
+}
 
 /**
  * Reports a critical error when the required LLM service disappears at
@@ -20,7 +38,7 @@ function handleServiceUnavailable(event) {
   savedContext.reportCriticalError({
     code: 'REQUIRED_DEPENDENCY_LOST',
     message: `Required service ${LLM_SERVICE} is no longer available`,
-    source: SERVICE_NAME,
+    source: PLUGIN_NAME,
     type: 'critical',
     timestamp: new Date().toISOString(),
   });
@@ -33,20 +51,17 @@ function handleServiceUnavailable(event) {
  * @returns {Promise<Array>} Service registration.
  */
 export async function prepare(prepareContext) {
-  state.llm = null;
+  // A repeated prepare() call must not leave the previous call's listener
+  // behind on the Event Bus.
+  teardown();
   state.events = prepareContext.events ?? null;
   state.config = prepareContext.config ?? {};
   savedContext = prepareContext;
-  prepareContext.events?.subscribe('core:service-unavailable', handleServiceUnavailable);
+  const subscribed = prepareContext.events?.subscribe('core:service-unavailable', handleServiceUnavailable);
+  unsubscribeUnavailable = typeof subscribed === 'function' ? subscribed : null;
   lifecycle = createChatService(state);
-  prepareContext.onDeactivated = () => {
-    state.llm = null;
-    lifecycle?.deactivate();
-  };
-  prepareContext.onShutdown = async () => {
-    state.llm = null;
-    lifecycle?.deactivate();
-  };
+  prepareContext.onDeactivated = () => teardown();
+  prepareContext.onShutdown = async () => teardown();
   return [{ name: SERVICE_NAME, object: lifecycle.service }];
 }
 
@@ -58,7 +73,14 @@ export async function prepare(prepareContext) {
 export async function activate(services) {
   const llm = services[LLM_SERVICE];
   if (!llm) {
-    throw new Error(`Required service is unavailable: ${LLM_SERVICE}`);
+    // Boundary errors are always structured, startup included.
+    throw Object.assign(new Error(`Required service is unavailable: ${LLM_SERVICE}`), {
+      code: 'REQUIRED_DEPENDENCY_UNAVAILABLE',
+      source: PLUGIN_NAME,
+      type: 'startup',
+      timestamp: new Date().toISOString(),
+      detail: { service: LLM_SERVICE },
+    });
   }
   state.llm = llm;
 }

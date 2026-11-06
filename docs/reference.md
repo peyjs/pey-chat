@@ -63,7 +63,7 @@ Returns a read-only copy of the conversation: `{ id, role, parts, status, at }` 
 Configured as `maxTurns` (whole turns) and `maxChars` (total characters), both estimated on characters, not tokens. When building the payload for the model:
 
 - A **turn** is one user message plus the answer(s) that follow it; trimming always drops whole turns, oldest first, and only from what goes to the model.
-- The **system instruction** is counted in the characters (it goes to the model) but never dropped.
+- The **system instruction** is counted **inside** the `maxChars` budget (it goes to the model) but never dropped: the budget covers system + history together.
 - The **current message** is never dropped.
 - If the system instruction and the current message alone exceed the cap, nothing is dropped and the request is sent anyway; if the model refuses, `LLM_CONTEXT_TOO_LONG` reaches the UI unchanged — the plugin never shortens anything by itself.
 - An `incomplete` answer goes to the model like any other history entry (the user has seen it and the next question may refer to it).
@@ -84,8 +84,9 @@ Message text and context never appear in events or errors — events carry ids o
 | `CHAT_EMPTY_MESSAGE` | The message text is missing, empty or blank. | operational |
 | `CHAT_RESPONSE_IN_PROGRESS` | A send or retry arrived while an answer was being generated. | operational |
 | `CHAT_NO_RETRY_TARGET` | Retry was requested but no user message exists. | operational |
+| `CHAT_LLM_MALFORMED_ERROR` | `pey.llm` produced a raw, non-structured error (a bug or an incomplete implementation); structured `pey.llm` errors pass through unchanged. | operational |
 | `LLM_*` / `HTTP_*` | Passed through unchanged from `pey.llm` (including `LLM_CONTEXT_TOO_LONG` — no automatic shortening happens here). | operational |
-| `SERVICE_UNAVAILABLE` | Called before activation or after deactivation/shutdown. | operational |
+| `SERVICE_UNAVAILABLE` | Called before activation, or after deactivation/shutdown — all five methods (`send`, `stop`, `retry`, `clear`, `getHistory`) refuse. | operational |
 
 Branch on `code`, never on `message`.
 

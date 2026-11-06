@@ -9,15 +9,26 @@ const MANIFEST_PATH = new URL('../manifest.json', import.meta.url);
 const PACKAGE_PATH = new URL('../package.json', import.meta.url);
 
 function createPrepareContext(overrides = {}) {
+  const published = [];
+  const listeners = {};
   return {
     config: {},
+    published,
+    listeners,
     events: {
       publish: () => {},
-      subscribe: () => () => {},
+      subscribe(type, listener) {
+        listeners[type] = listeners[type] ?? [];
+        listeners[type].push(listener);
+        return () => {
+          const index = listeners[type].indexOf(listener);
+          if (index !== -1) listeners[type].splice(index, 1);
+        };
+      },
     },
     onShutdown: null,
     onDeactivated: null,
-    reportCriticalError: () => {},
+    reportCriticalError: (error) => published.push(error),
     ...overrides,
   };
 }
@@ -45,7 +56,7 @@ test('should_reject_activation_when_the_llm_dependency_is_missing', async () => 
   await activate({ 'pey.llm.service': {} });
 });
 
-test('should_refuse_calls_before_activation', async () => {
+test('should_refuse_calls_before_activation_when_the_dependency_is_not_bound', async () => {
   const context = createPrepareContext();
   const registrations = await prepare(context);
 
@@ -55,7 +66,7 @@ test('should_refuse_calls_before_activation', async () => {
   );
 });
 
-test('should_send_nothing_at_startup', async () => {
+test('should_send_nothing_at_startup_when_prepare_only_registers_the_service', async () => {
   const context = createPrepareContext();
   await prepare(context);
 
@@ -80,4 +91,52 @@ test('should_match_manifest_contract_when_loaded', async () => {
   assert.deepEqual(methodNames, ['send', 'stop', 'retry', 'clear', 'getHistory']);
   assert.deepEqual(manifest.events.map((event) => event.name), ['chat:message-completed', 'chat:history-cleared']);
   assert.deepEqual(manifest.config, { systemInstruction: '', maxTurns: 10, maxChars: 20000 });
+});
+
+test('should_reject_activation_with_a_structured_startup_error_when_the_dependency_is_missing', async () => {
+  await prepare(createPrepareContext());
+
+  await assert.rejects(
+    () => activate({}),
+    (error) => error.code === 'REQUIRED_DEPENDENCY_UNAVAILABLE'
+      && error.type === 'startup'
+      && error.source === 'pey.chat',
+  );
+});
+
+test('should_report_critical_error_when_the_llm_dependency_is_lost_at_runtime', async () => {
+  const context = createPrepareContext();
+  await prepare(context);
+
+  context.listeners['core:service-unavailable'][0]({
+    data: { serviceName: 'pey.llm.service' },
+  });
+
+  const critical = context.published.find((error) => error.type === 'critical');
+  assert.equal(critical.code, 'REQUIRED_DEPENDENCY_LOST');
+  assert.equal(critical.source, 'pey.chat');
+});
+
+test('should_ignore_unrelated_service_loss_when_notified', async () => {
+  const context = createPrepareContext();
+  await prepare(context);
+
+  context.listeners['core:service-unavailable'][0]({
+    data: { serviceName: 'other.service' },
+  });
+
+  assert.equal(context.published.length, 0);
+});
+
+test('should_unsubscribe_from_service_unavailable_when_shutdown_or_deactivated', async () => {
+  const context = createPrepareContext();
+  await prepare(context);
+  assert.equal(context.listeners['core:service-unavailable'].length, 1);
+
+  await context.onShutdown();
+  assert.equal(context.listeners['core:service-unavailable'].length, 0, 'shutdown must leave the bus');
+
+  await prepare(context);
+  context.onDeactivated();
+  assert.equal(context.listeners['core:service-unavailable'].length, 0, 'deactivation must leave the bus');
 });

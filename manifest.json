@@ -21,7 +21,7 @@
             { "name": "handlers", "type": "{ onText: (delta: string) => void }" }
           ],
           "returns": "Promise<{ cancel: () => void, done: Promise<{ ending: 'completed' } | { ending: 'interrupted', error: object } | { ending: 'cancelled' }> }>",
-          "errors": ["CHAT_EMPTY_MESSAGE", "CHAT_RESPONSE_IN_PROGRESS", "LLM_NOT_CONFIGURED", "LLM_INPUT_INVALID", "LLM_UNAUTHORIZED", "LLM_MODEL_NOT_FOUND", "LLM_RATE_LIMITED", "LLM_CONTEXT_TOO_LONG", "LLM_UNSUPPORTED_CONTENT", "LLM_INVALID_RESPONSE", "LLM_STREAM_INTERRUPTED", "LLM_REQUEST_FAILED", "HTTP_NETWORK_FAILED", "HTTP_TIMEOUT", "SERVICE_UNAVAILABLE"]
+          "errors": ["CHAT_EMPTY_MESSAGE", "CHAT_RESPONSE_IN_PROGRESS", "CHAT_LLM_MALFORMED_ERROR", "LLM_NOT_CONFIGURED", "LLM_INPUT_INVALID", "LLM_UNAUTHORIZED", "LLM_MODEL_NOT_FOUND", "LLM_RATE_LIMITED", "LLM_CONTEXT_TOO_LONG", "LLM_UNSUPPORTED_CONTENT", "LLM_INVALID_RESPONSE", "LLM_STREAM_INTERRUPTED", "LLM_REQUEST_FAILED", "HTTP_NETWORK_FAILED", "HTTP_TIMEOUT", "SERVICE_UNAVAILABLE"]
         },
         {
           "name": "stop",
@@ -37,7 +37,7 @@
             { "name": "handlers", "type": "{ onText: (delta: string) => void }" }
           ],
           "returns": "Promise<{ cancel: () => void, done: Promise<{ ending: 'completed' } | { ending: 'interrupted', error: object } | { ending: 'cancelled' }> }>",
-          "errors": ["CHAT_NO_RETRY_TARGET", "CHAT_RESPONSE_IN_PROGRESS", "LLM_NOT_CONFIGURED", "LLM_INPUT_INVALID", "LLM_UNAUTHORIZED", "LLM_MODEL_NOT_FOUND", "LLM_RATE_LIMITED", "LLM_CONTEXT_TOO_LONG", "LLM_UNSUPPORTED_CONTENT", "LLM_INVALID_RESPONSE", "LLM_STREAM_INTERRUPTED", "LLM_REQUEST_FAILED", "HTTP_NETWORK_FAILED", "HTTP_TIMEOUT", "SERVICE_UNAVAILABLE"]
+          "errors": ["CHAT_NO_RETRY_TARGET", "CHAT_RESPONSE_IN_PROGRESS", "CHAT_LLM_MALFORMED_ERROR", "LLM_NOT_CONFIGURED", "LLM_INPUT_INVALID", "LLM_UNAUTHORIZED", "LLM_MODEL_NOT_FOUND", "LLM_RATE_LIMITED", "LLM_CONTEXT_TOO_LONG", "LLM_UNSUPPORTED_CONTENT", "LLM_INVALID_RESPONSE", "LLM_STREAM_INTERRUPTED", "LLM_REQUEST_FAILED", "HTTP_NETWORK_FAILED", "HTTP_TIMEOUT", "SERVICE_UNAVAILABLE"]
         },
         {
           "name": "clear",
