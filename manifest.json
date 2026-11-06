@@ -1,6 +1,6 @@
 {
   "name": "pey.chat",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "architecture": "0.11",
   "description": "Conversation logic for a single in-memory chat with a language model: history, system instruction, per-message context, progressive answer delivery, stop and retry with a sending-history cap. Holds no key and no connection settings — pey.llm owns those; presentation stays with the UI.",
   "type": "feature",

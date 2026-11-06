@@ -1,6 +1,6 @@
 {
   "name": "pey.chat",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Single in-memory conversation with a language model: history, system instruction, per-message context, progressive delivery, stop and retry, sending-history cap",
   "exports": {
