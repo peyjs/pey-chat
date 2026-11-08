@@ -1,6 +1,6 @@
 {
   "name": "pey.chat",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "architecture": "0.11",
   "description": "Conversation logic for a single in-memory chat with a language model: history, system instruction, per-message context, progressive answer delivery, stop and retry with a sending-history cap. Holds no key and no connection settings — pey.llm owns those; presentation stays with the UI.",
   "type": "feature",
@@ -32,7 +32,7 @@
         },
         {
           "name": "retry",
-          "description": "Regenerates the answer for the last user message without repeating the message. The previous answer (complete, incomplete or failed) stays untouched until the first new text arrives, then is replaced by the new one; a failure before any text keeps the previous answer. Never automatic — every retry is an explicit caller request.",
+          "description": "Regenerates the answer for the last user message without repeating the message. The previous answer (complete, incomplete or failed) stays untouched until the first new text arrives, then is replaced by the new one; a failure before any text — and a completion without any new text — keeps the previous answer. Never automatic — every retry is an explicit caller request.",
           "params": [
             { "name": "handlers", "type": "{ onText: (delta: string) => void }" }
           ],

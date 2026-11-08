@@ -16,7 +16,8 @@ Feature plugin of the Pey ecosystem: conversation logic for a single in-memory c
 - `index.js` — Bonyan two-phase entry point (`prepare` / `activate`).
 - `lib/constants.js` — plugin names, error codes, defaults.
 - `lib/error.js` — standard Bonyan error factory.
-- `lib/chat-service.js` — conversation state, cap trimming, stop/retry.
+- `lib/chat-history.js` — history normalization and the sending-history cap (trimming).
+- `lib/chat-service.js` — conversation state, stop/retry.
 - `tests/` — unit tests (`node:test`, fake `pey.llm` only).
 
 ## Dependencies

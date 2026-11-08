@@ -174,6 +174,53 @@ test('should_keep_the_partial_answer_and_pass_the_error_when_it_fails_midway', a
   assert.equal(history[1].parts[0].text, 'نیمه');
 });
 
+test('should_keep_the_previous_answer_when_a_retry_completes_without_any_text', async () => {
+  // The retry contract keeps the previous answer until NEW text arrives;
+  // a zero-delta completion is no new text — nothing is appended, nothing
+  // is announced (same outcome family as the failure branch).
+  let attempt = 0;
+  const { service, published } = createService({
+    map: {
+      stream: (messages, handlers) => {
+        attempt += 1;
+        return attempt === 1 ? makeHandle(handlers, ['پاسخ اولیه']) : makeHandle(handlers, []);
+      },
+    },
+  });
+
+  const first = await service.send({ text: 'سؤال' }, { onText: () => {} });
+  await first.done;
+  assert.equal(service.getHistory()[1].parts[0].text, 'پاسخ اولیه');
+
+  const second = await service.retry({ onText: () => {} });
+  const final = await second.done;
+
+  assert.equal(final.ending, 'completed');
+  assert.equal(service.getHistory().length, 2, 'no empty answer is appended');
+  assert.equal(service.getHistory()[1].parts[0].text, 'پاسخ اولیه', 'the previous answer survives an empty completion');
+  assert.equal(published.filter((event) => event.type === 'chat:message-completed').length, 1, 'only the first completion was announced');
+});
+
+test('should_register_the_empty_answer_when_a_fresh_send_completes_without_any_text', async () => {
+  // A fresh turn ends with the user message: the (empty) assistant answer
+  // is still registered so the turn stays consistent, and it is announced.
+  const { service, published } = createService({
+    map: {
+      stream: (messages, handlers) => makeHandle(handlers, []),
+    },
+  });
+
+  const handle = await service.send({ text: 'سؤال' }, { onText: () => {} });
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'completed');
+  const history = service.getHistory();
+  assert.equal(history.length, 2);
+  assert.equal(history[1].role, 'assistant');
+  assert.equal(history[1].parts[0].text, '');
+  assert.equal(published.filter((event) => event.type === 'chat:message-completed').length, 1);
+});
+
 test('should_replace_the_previous_answer_only_when_the_first_new_text_arrives', async () => {
   let attempt = 0;
   const { service } = createService({
@@ -183,7 +230,7 @@ test('should_replace_the_previous_answer_only_when_the_first_new_text_arrives', 
         if (attempt === 1) {
           return makeHandle(handlers, ['پاسخ اولیه']);
         }
-        return makeHandle(handlers, ['جایگزین'], { delayMs: 10 });
+        return makeHandle(handlers, ['جایگزین']);
       },
     },
   });
@@ -694,23 +741,32 @@ test('should_reject_with_a_structured_error_when_transport_done_rejects_raw', as
   assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR');
 });
 
-test('should_swallow_a_throwing_cancel_when_stop_clear_and_deactivate_cancel', async () => {
+test('should_swallow_a_throwing_cancel_when_stop_clear_and_deactivate_run_mid_stream', async () => {
+  // The transport is what stop/clear/deactivate actually cancel: its done
+  // is held open on a gate and its cancel is broken, so every swallowed
+  // call is really exercised (counted), not a no-op on a nulled handle.
+  const gate = createGate();
+  let cancelCalls = 0;
   const { service, deactivate, published } = createService({
     map: {
-      stream: (messages, handlers) => makeHandle(handlers, [], {
-        ending: 'interrupted',
-        error: { code: 'LLM_REQUEST_FAILED', message: 'x', source: 'pey.llm', type: 'operational', timestamp: 't' },
-      }),
+      stream: (messages, handlers) => {
+        const transport = makeHandle(handlers, ['پاسخ'], { gates: [gate] });
+        transport.cancel = () => {
+          cancelCalls += 1;
+          throw new Error('pey.llm cancel is broken');
+        };
+        return transport;
+      },
     },
   });
 
-  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
-  handle.cancel = () => {
-    throw new Error('pey.llm cancel is broken');
-  };
+  await service.send({ text: 'سلام' }, { onText: () => {} });
 
   assert.doesNotThrow(() => service.stop(), 'a broken cancel must not cross stop');
   assert.doesNotThrow(() => service.clear(), 'a broken cancel must not cross clear');
   assert.doesNotThrow(() => deactivate(), 'a broken cancel must never reach teardown or the shutdown cycle');
+  assert.ok(cancelCalls >= 1, 'the broken cancel was actually invoked');
   assert.equal(published.filter((event) => event.type === 'chat:history-cleared').length, 1);
+
+  gate.open();
 });

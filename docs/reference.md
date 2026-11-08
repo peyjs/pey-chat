@@ -12,7 +12,8 @@ Conversation logic for a single chat with a language model: history, the system 
 - `index.js` — Bonyan two-phase entry point (`prepare` / `activate`).
 - `lib/constants.js` — plugin name, service name, error codes, defaults.
 - `lib/error.js` — standard Bonyan error factory.
-- `lib/chat-service.js` — conversation state, cap trimming, stop/retry.
+- `lib/chat-history.js` — history normalization and the sending-history cap (trimming).
+- `lib/chat-service.js` — conversation state, stop/retry.
 - `tests/` — unit tests (`node:test`, fake `pey.llm` only).
 
 ## Dependencies
@@ -46,6 +47,7 @@ Regenerates the answer for the **last user message** without repeating the messa
 
 - The previous answer (complete, incomplete or failed) stays untouched until the first new text arrives; then the new answer takes its place.
 - A failure before any text keeps the previous answer and surfaces the error.
+- A completion without any new text keeps the previous answer too (no empty answer is appended and no completion event fires); only a fresh turn — history ending with the user message — registers the empty answer.
 - A mid-way failure or a stop replaces the previous answer with the received partial, marked `incomplete`.
 
 No user message in history → `CHAT_NO_RETRY_TARGET`.

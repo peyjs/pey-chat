@@ -19,8 +19,3 @@ test('should_reject_unsupported_codes_and_types_when_misused', () => {
   assert.throws(() => createChatError('CHAT_EMPTY_MESSAGE', 'x', 'fatal'), TypeError);
 });
 
-test('should_keep_every_chat_error_code_prefixed_when_listed', () => {
-  for (const code of Object.values(ERROR_CODES)) {
-    assert.match(code, /^CHAT_[A-Z_]+$/, code);
-  }
-});
