@@ -7,13 +7,11 @@
 - The raw-`pey.llm` boundary is now closed on every path: a rejecting `transport.done` lands as a structured interruption (done never rejects), and a throwing `transport.cancel` is swallowed at the handle, `stop`, `clear` and `deactivate` (it can never reach teardown or the shutdown cycle).
 - `SERVICE_UNAVAILABLE` is declared in the manifest for `stop`, `clear` and `getHistory` (they refuse after deactivation like `send`/`retry`), and the manifest contract test now locks every method's error list.
 - A `completed` ending for a generation whose conversation was cleared mid-flight no longer publishes `chat:message-completed` for a message that exists in no history.
-- The stale `PLUGIN_VERSION` constant is gone; `normalizeLlmError` lives in `lib/error.js`; per-source test files added for `chat-history` and `constants` (55 tests).
-
-### Fixed (third review pass)
-
+- The stale `PLUGIN_VERSION` constant is gone; `normalizeLlmError` lives in `lib/error.js`; per-source test files added for `chat-history` and `constants`.
 - A `retry` whose stream completes without a single delta no longer appends an empty assistant message under the previous answer: like the failure branch, the previous answer is kept and nothing is announced; only a fresh turn (history ending with the user message) registers the empty answer. The manifest and reference document this decision (dedicated tests added).
 - The throwing-cancel test was rewritten to break the real transport cancel mid-stream (counted invocations) — the previous scenario exercised a nulled handle and could not fail; the dead `delayMs` fake option is gone and the duplicated code-prefix test was removed from `tests/error.test.js`.
-- README and reference structure lists now include `lib/chat-history.js` (cap trimming lives there, not in `chat-service.js`).
+- README and reference structure lists now include `lib/chat-history.js` (cap trimming lives there, not in `chat-service.js`), and the module is part of the published `exports` like the other `lib/*` modules.
+- `tests/entry.test.js` renamed to `tests/index.test.js` so the test file mirrors its source (`index.js`); test count 56.
 
 ## [1.0.1] - 1405-08-15
 

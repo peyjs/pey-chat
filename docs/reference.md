@@ -13,6 +13,8 @@ Conversation logic for a single chat with a language model: history, the system 
 - `lib/constants.js` — plugin name, service name, error codes, defaults.
 - `lib/error.js` — standard Bonyan error factory.
 - `lib/chat-history.js` — history normalization and the sending-history cap (trimming).
+
+The `lib/*` modules above are part of the published package surface (`exports`): consumers may import them directly, alongside `.` and the manifest.
 - `lib/chat-service.js` — conversation state, stop/retry.
 - `tests/` — unit tests (`node:test`, fake `pey.llm` only).
 

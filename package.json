@@ -9,7 +9,8 @@
     "./lib/constants.js": "./lib/constants.js",
     "./lib/error.js": "./lib/error.js",
     "./lib/chat-service.js": "./lib/chat-service.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./lib/chat-history.js": "./lib/chat-history.js"
   },
   "engines": {
     "node": ">=22"
