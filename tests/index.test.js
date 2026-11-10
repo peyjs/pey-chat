@@ -76,6 +76,17 @@ test('should_send_nothing_at_startup_when_prepare_only_registers_the_service', a
   assert.ok(context.onDeactivated);
 });
 
+test('should_match_the_readme_badge_version_when_the_manifest_declares_one', async () => {
+  // The badge has drifted three releases without anyone noticing; the
+  // manifest-vs-badge check keeps it at the gate from now on.
+  const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
+  const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+
+  const badge = readme.match(/version-([\d.]+)-blue/);
+  assert.notEqual(badge, null, 'the README carries a version badge');
+  assert.equal(badge[1], manifest.version, 'the badge never drifts from the manifest');
+});
+
 test('should_match_manifest_contract_when_loaded', async () => {
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
   const pkg = JSON.parse(await readFile(PACKAGE_PATH, 'utf8'));

@@ -705,23 +705,6 @@ test('should_fall_back_to_defaults_when_the_config_values_are_unusable', async (
 
 // --- second review pass: cancel/done boundary hygiene ----------------------
 
-test('should_end_interrupted_when_transport_done_rejects_raw', async () => {
-  const { service } = createService({
-    map: {
-      stream: (messages, handlers) => makeHandle(handlers, [], {
-        ending: 'interrupted',
-        error: new Error('raw pey.llm bug'),
-      }),
-    },
-  });
-
-  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
-  const final = await handle.done;
-
-  assert.equal(final.ending, 'interrupted');
-  assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR');
-});
-
 test('should_reject_with_a_structured_error_when_transport_done_rejects_raw', async () => {
   // The contract says done NEVER rejects: a broken pey.llm done promise
   // must land as a structured interruption, not a raw throw.
