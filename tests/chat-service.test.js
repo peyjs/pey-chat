@@ -688,6 +688,39 @@ test('should_reject_every_method_after_deactivation', async () => {
   assert.throws(() => service.getHistory(), (error) => error.code === 'SERVICE_UNAVAILABLE');
 });
 
+test('should_cancel_a_transport_that_resolves_after_deactivation_and_never_deliver_its_deltas', async () => {
+  // deactivate() cannot reach a transport that has not resolved yet: when
+  // it finally does, the generation guard must cancel it immediately — the
+  // request must not keep burning tokens, and no delta may reach the
+  // caller's handler after deactivation.
+  const gate = createGate();
+  let delivered = [];
+  let cancelCalls = 0;
+  const { service, deactivate } = createService({
+    map: {
+      stream: (messages, handlers) => {
+        const transport = makeHandle((handlers), ['دلتای دیرهنگام'], { gates: [gate] });
+        const innerCancel = transport.cancel;
+        transport.cancel = () => {
+          cancelCalls += 1;
+          innerCancel();
+        };
+        return transport;
+      },
+    },
+  });
+
+  const pending = service.send({ text: 'سلام' }, { onText: (text) => delivered.push(text) });
+  deactivate();
+  gate.open();
+  const handle = await pending;
+  const final = await handle.done;
+
+  assert.equal(cancelCalls, 1, 'the late transport was cancelled on arrival');
+  assert.deepEqual(delivered, [], 'no delta reached the caller after deactivation');
+  assert.equal(final.ending, 'cancelled');
+});
+
 test('should_fall_back_to_defaults_when_the_config_values_are_unusable', async () => {
   const { service, llm } = createService({
     config: { systemInstruction: 42, maxTurns: 0, maxChars: -5 },

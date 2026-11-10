@@ -12,6 +12,7 @@
 - The throwing-cancel test was rewritten to break the real transport cancel mid-stream (counted invocations) — the previous scenario exercised a nulled handle and could not fail; the dead `delayMs` fake option is gone and the duplicated code-prefix test was removed from `tests/error.test.js`.
 - README and reference structure lists now include `lib/chat-history.js` (cap trimming lives there, not in `chat-service.js`), and the module is part of the published `exports` like the other `lib/*` modules.
 - `tests/entry.test.js` renamed to `tests/index.test.js` so the test file mirrors its source (`index.js`).
+- A transport resolving AFTER deactivation is cancelled on arrival through the generation guard and never delivers deltas to the caller (previously only stop/clear closed the pre-transport window; deactivate left the request running to completion) — regression test added (57 tests).
 - The exports note moved out of the middle of the reference structure list and covers all four `lib/*` modules; the misnamed duplicate of the raw-interrupted-error test was removed (the contract test for a REJECTING `done` remains); the README version badge is now locked to the manifest by a contract test (55 tests).
 
 ## [1.0.1] - 1405-08-15
