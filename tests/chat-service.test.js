@@ -873,6 +873,82 @@ test('should_map_a_done_that_resolves_to_an_invalid_value_when_the_transport_bre
   }
 });
 
+test('should_map_an_unknown_ending_string_when_the_transport_invents_an_ending', async () => {
+  // Exactly three endings are declared: an unknown ending STRING is a
+  // contract break like any other — it must reach CHAT_LLM_MALFORMED_ERROR
+  // through the same path, not fall through the branch chain into a silent
+  // "cancelled" (which would make the transport's garbage indistinguishable
+  // from a legitimate user cancellation).
+  const gate = createGate();
+  const { service } = createService({
+    map: {
+      stream: () => ({
+        cancel() {},
+        done: (async () => {
+          await gate.wait();
+          return { ending: 'boom' };
+        })(),
+      }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  gate.open();
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'interrupted');
+  assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR');
+});
+
+test('should_map_a_throwing_ending_getter_when_the_transport_object_breaks_its_contract', async () => {
+  // Reading a broken pey.llm object can throw in its own right: a throwing
+  // `ending` getter used to escape done as a raw TypeError — done never
+  // rejects, and nothing raw crosses the boundary. It maps like every
+  // other contract break, and the generation guard still applies.
+  const gate = createGate();
+  const { service } = createService({
+    map: {
+      stream: () => ({
+        cancel() {},
+        done: (async () => {
+          await gate.wait();
+          return {
+            get ending() { throw new TypeError('broken ending getter'); },
+          };
+        })(),
+      }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  gate.open();
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'interrupted', 'done still resolves, never rejects');
+  assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR');
+
+  // And for a dead generation the same break reports cancelled.
+  const gate2 = createGate();
+  const { service: service2 } = createService({
+    map: {
+      stream: () => ({
+        cancel() {},
+        done: (async () => {
+          await gate2.wait();
+          return {
+            get ending() { throw new TypeError('broken ending getter'); },
+          };
+        })(),
+      }),
+    },
+  });
+  const handle2 = await service2.send({ text: 'سلام' }, { onText: () => {} });
+  service2.clear();
+  gate2.open();
+  const final2 = await handle2.done;
+  assert.equal(final2.ending, 'cancelled', 'a dead generation still reports cancelled');
+});
+
 test('should_map_a_transport_without_done_when_the_transport_breaks_its_contract', async () => {
   const { service } = createService({
     map: { stream: () => ({ cancel() {} }) },
