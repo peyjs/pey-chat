@@ -757,6 +757,87 @@ test('should_not_leave_an_unhandled_rejection_when_a_late_transport_done_rejects
   await new Promise((resolve) => setImmediate(resolve));
 });
 
+test('should_not_leak_a_raw_error_when_a_broken_transport_done_getter_is_forgotten', async () => {
+  // Reading a broken pey.llm object's `done` in the short-circuit path must
+  // be as defended as its `cancel`: a throwing getter would otherwise break
+  // the handle promise with a raw TypeError — a raw error across the
+  // boundary that normalizeLlmError promises never happens.
+  const gate = createGate();
+  const { service, deactivate } = createService({
+    map: {
+      stream: (messages, handlers) => {
+        const transport = makeHandle(handlers, ['دلتای دیرهنگام'], { gates: [gate] });
+        Object.defineProperty(transport, 'done', {
+          get() { throw new TypeError('broken pey.llm object'); },
+        });
+        return transport;
+      },
+    },
+  });
+
+  const pending = service.send({ text: 'سلام' }, { onText: () => {} });
+  deactivate();
+  gate.open();
+  const handle = await pending;
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'cancelled');
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
+test('should_not_announce_an_interrupted_ending_when_the_conversation_was_cleared_midway', async () => {
+  // Same rule as the completed branch: an interrupted settlement landing
+  // after clear()/deactivate() belongs to a dead generation — announcing it
+  // would report an error for a message that exists in no history, so the
+  // caller sees the same cancelled ending as every other late settlement.
+  const gate = createGate();
+  const { service } = createService({
+    map: {
+      stream: (messages, handlers) => ({
+        cancel() {},
+        done: (async () => {
+          await gate.wait();
+          return {
+            ending: 'interrupted',
+            error: { code: 'LLM_STREAM_INTERRUPTED', message: 'cut', source: 'pey.llm', type: 'operational', timestamp: 't' },
+          };
+        })(),
+      }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  service.clear();
+  gate.open();
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'cancelled', 'the dead generation reports cancelled, not interrupted');
+  assert.equal(final.error, undefined, 'no error is announced for a cleared conversation');
+  assert.equal(service.getHistory().length, 0);
+});
+
+test('should_deliver_no_delta_to_the_caller_once_the_conversation_was_cleared_midway', async () => {
+  // clear() cuts the in-flight answer — the documented contract: deltas the
+  // racing transport emits after the clear reach neither the history nor
+  // the caller's handler, whose view was emptied on purpose (stop() never
+  // bumps the generation, so its mid-stream deltas are unaffected).
+  const gate = createGate();
+  const { service } = createService({
+    map: {
+      stream: (messages, handlers) => makeHandle(handlers, ['دلتای پس از پاک‌سازی'], { gates: [gate] }),
+    },
+  });
+  const delivered = [];
+  const handle = await service.send({ text: 'سلام' }, { onText: (text) => delivered.push(text) });
+
+  service.clear();
+  gate.open();
+  await handle.done;
+
+  assert.deepEqual(delivered, [], 'no orphan delta reaches the caller after the clear');
+  assert.equal(service.getHistory().length, 0);
+});
+
 test('should_fall_back_to_defaults_when_the_config_values_are_unusable', async () => {
   const { service, llm } = createService({
     config: { systemInstruction: 42, maxTurns: 0, maxChars: -5 },

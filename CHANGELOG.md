@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Round 8: the raw-`pey.llm` boundary closes its last unguarded read — the short-circuit path's `done` access (a broken transport's throwing `done` getter crossed as a raw `TypeError` instead of being forgotten like its rejecting counterpart); an `interrupted` settlement for a generation whose conversation was cleared/reactivated mid-flight now reports `cancelled` like every other late settlement (no error announced for a message that exists in no history); and the deltas of a cancelled generation reach neither the history nor the caller's handler after `clear()`/`deactivate()` — the literal reading of "clearing cuts the in-flight answer" (three regression tests added).
 - The raw-`pey.llm` boundary is now closed on every path: a rejecting `transport.done` lands as a structured interruption (done never rejects), and a throwing `transport.cancel` is swallowed at the handle, `stop`, `clear` and `deactivate` (it can never reach teardown or the shutdown cycle).
 - `SERVICE_UNAVAILABLE` is declared in the manifest for `stop`, `clear` and `getHistory` (they refuse after deactivation like `send`/`retry`), and the manifest contract test now locks every method's error list.
 - A `completed` ending for a generation whose conversation was cleared mid-flight no longer publishes `chat:message-completed` for a message that exists in no history.
