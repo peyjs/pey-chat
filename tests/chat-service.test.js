@@ -816,6 +816,122 @@ test('should_not_announce_an_interrupted_ending_when_the_conversation_was_cleare
   assert.equal(service.getHistory().length, 0);
 });
 
+test('should_not_announce_an_interrupted_ending_when_a_cleared_conversations_done_rejects', async () => {
+  // The reject path of a broken pey.llm done goes through the SAME
+  // generation guard as the resolved interrupted ending: clear()/deactivate()
+  // mid-generation must not surface the dead generation's error as an
+  // interruption — the caller sees cancelled either way (deterministic in
+  // the transport's manner of breaking).
+  const gate = createGate();
+  const { service } = createService({
+    map: {
+      stream: (messages, handlers) => ({
+        cancel() {},
+        done: (async () => {
+          await gate.wait();
+          throw new Error('connection died under the abort');
+        })(),
+      }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  service.clear();
+  gate.open();
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'cancelled', 'a dead generation reports cancelled on the reject path too');
+  assert.equal(final.error, undefined);
+  assert.equal(service.getHistory().length, 0);
+});
+
+test('should_map_a_done_that_resolves_to_an_invalid_value_when_the_transport_breaks_its_contract', async () => {
+  // done RESOLVES to one of three endings by contract: a resolve to null
+  // (or a primitive, or an ending-less object) used to die RAW on
+  // `final.ending` — a TypeError crossing the boundary, breaking the
+  // "three endings only" promise both the comment and the manifest make.
+  const gate = createGate();
+  for (const invalid of [null, undefined, 42, {}]) {
+    const { service } = createService({
+      map: {
+        stream: () => ({
+          cancel() {},
+          done: (async () => {
+            await gate.wait();
+            return invalid;
+          })(),
+        }),
+      },
+    });
+
+    const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+    gate.open();
+    const final = await handle.done;
+
+    assert.equal(final.ending, 'interrupted', 'an invalid resolve is a contract break');
+    assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR', 'the break maps to the malformed code, never raw');
+  }
+});
+
+test('should_map_a_transport_without_done_when_the_transport_breaks_its_contract', async () => {
+  const { service } = createService({
+    map: { stream: () => ({ cancel() {} }) },
+  });
+
+  const handle = await service.send({ text: 'سلام' }, { onText: () => {} });
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'interrupted');
+  assert.equal(final.error.code, 'CHAT_LLM_MALFORMED_ERROR');
+});
+
+test('should_leave_no_unhandled_rejection_when_a_non_caching_done_getter_hands_out_fresh_promises', async () => {
+  // safeForgetDone must read `done` ONCE: a non-caching getter hands out a
+  // fresh Promise per access, so a second read orphans the first promise's
+  // rejection — the exact unhandled-rejection crash this helper exists to
+  // prevent.
+  const gate = createGate();
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(String(reason));
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    const { service, deactivate } = createService({
+      map: {
+        stream: () => {
+          const inner = { ending: 'cancelled' };
+          let access = 0;
+          return {
+            cancel() {},
+            get done() {
+              access += 1;
+              // A fresh rejecting promise per access; only the LAST read
+              // ever gets its catch attached.
+              return gate.wait().then(() => {
+                if (access < 3) {
+                  throw new Error(`orphaned rejection ${access}`);
+                }
+                return inner;
+              });
+            },
+          };
+        },
+      },
+    });
+
+    const pending = service.send({ text: 'سلام' }, { onText: () => {} });
+    deactivate();
+    gate.open();
+    const handle = await pending;
+    await handle.done;
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(unhandled, [], 'every handed-out promise got its catch attached');
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
+});
+
 test('should_deliver_no_delta_to_the_caller_once_the_conversation_was_cleared_midway', async () => {
   // clear() cuts the in-flight answer — the documented contract: deltas the
   // racing transport emits after the clear reach neither the history nor
