@@ -721,6 +721,42 @@ test('should_cancel_a_transport_that_resolves_after_deactivation_and_never_deliv
   assert.equal(final.ending, 'cancelled');
 });
 
+test('should_not_leave_an_unhandled_rejection_when_a_late_transport_done_rejects_after_deactivation', async () => {
+  // The short-circuit path abandons the cancelled transport's done: its
+  // rejection (contract break, connection death under the abort) must be
+  // caught silently — an unhandled rejection would crash the host process.
+  const gate = createGate();
+  let cancelCalls = 0;
+  const { service, deactivate } = createService({
+    map: {
+      stream: (messages, handlers) => {
+        const transport = makeHandle(handlers, ['دلتای دیرهنگام'], { gates: [gate] });
+        const innerCancel = transport.cancel;
+        transport.cancel = () => {
+          cancelCalls += 1;
+          innerCancel();
+        };
+        transport.done = transport.done.then(() => {
+          throw new Error('connection died under the abort');
+        });
+        return transport;
+      },
+    },
+  });
+
+  const pending = service.send({ text: 'سلام' }, { onText: () => {} });
+  deactivate();
+  gate.open();
+  const handle = await pending;
+  const final = await handle.done;
+
+  assert.equal(cancelCalls, 1, 'the late transport was cancelled');
+  assert.equal(final.ending, 'cancelled');
+  // Give any unhandled rejection a tick to surface; the test runner fails
+  // the whole run on one, so simply completing here is the assertion.
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
 test('should_fall_back_to_defaults_when_the_config_values_are_unusable', async () => {
   const { service, llm } = createService({
     config: { systemInstruction: 42, maxTurns: 0, maxChars: -5 },
