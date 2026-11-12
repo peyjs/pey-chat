@@ -676,7 +676,7 @@ test('should_register_no_late_answer_when_the_conversation_is_cleared_after_text
   assert.deepEqual(service.getHistory(), [], 'nothing from the old generation may survive the clear');
 });
 
-test('should_reject_every_method_after_deactivation', async () => {
+test('should_reject_every_method_when_the_plugin_is_deactivated', async () => {
   const { service, deactivate } = createService({});
 
   deactivate();
@@ -688,7 +688,7 @@ test('should_reject_every_method_after_deactivation', async () => {
   assert.throws(() => service.getHistory(), (error) => error.code === 'SERVICE_UNAVAILABLE');
 });
 
-test('should_cancel_a_transport_that_resolves_after_deactivation_and_never_deliver_its_deltas', async () => {
+test('should_cancel_the_transport_and_deliver_no_delta_when_it_resolves_after_deactivation', async () => {
   // deactivate() cannot reach a transport that has not resolved yet: when
   // it finally does, the generation guard must cancel it immediately — the
   // request must not keep burning tokens, and no delta may reach the
@@ -1008,7 +1008,7 @@ test('should_leave_no_unhandled_rejection_when_a_non_caching_done_getter_hands_o
   }
 });
 
-test('should_deliver_no_delta_to_the_caller_once_the_conversation_was_cleared_midway', async () => {
+test('should_deliver_no_delta_to_the_caller_when_the_conversation_is_cleared_midway', async () => {
   // clear() cuts the in-flight answer — the documented contract: deltas the
   // racing transport emits after the clear reach neither the history nor
   // the caller's handler, whose view was emptied on purpose (stop() never
