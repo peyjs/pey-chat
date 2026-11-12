@@ -1095,3 +1095,35 @@ test('should_swallow_a_throwing_cancel_when_stop_clear_and_deactivate_run_mid_st
 
   gate.open();
 });
+
+test('should_complete_the_answer_and_publish_the_event_when_deltas_land_after_attach', async () => {
+  // Round-13 P0 regression: the settlement used to receive `registered` as
+  // a VALUE snapshot taken at transport attach — but a real transport
+  // delivers its deltas AFTER the attach, and the registration they
+  // performed was invisible to the completed branch. The answer then sat
+  // `incomplete` in history forever and chat:message-completed never fired
+  // (the synchronous fake hid it; this gated fake reproduces the real
+  // order). The flag must be read AT SETTLE TIME.
+  let openGate = null;
+  const gatePromise = new Promise((resolve) => { openGate = resolve; });
+  const gate = { wait: () => gatePromise, open: openGate };
+  const { service, published } = createService({
+    map: {
+      stream: (messages, handlers) => makeHandle(handlers, ['پاسخ'], { gates: [gate] }),
+    },
+  });
+
+  const handle = await service.send({ text: 'سلام' });
+  // The delta lands only now — after the transport attached.
+  gate.open();
+  const final = await handle.done;
+
+  assert.equal(final.ending, 'completed');
+  const history = service.getHistory();
+  assert.equal(history[1].role, 'assistant');
+  assert.equal(history[1].parts[0].text, 'پاسخ', 'the post-attach delta reached the answer');
+  assert.equal(history[1].status, 'complete', 'the completed branch saw the live registration');
+  const completions = published.filter((event) => event.type === 'chat:message-completed');
+  assert.equal(completions.length, 1, 'exactly one completion event');
+  assert.equal(completions[0].data.messageId, history[1].id);
+});
