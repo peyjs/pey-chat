@@ -1,8 +1,6 @@
 # Changelog
 
-## [1.0.2] - 1405-08-21
-
-Round-2 through round-21 review fixes (all unpublished; one release).
+## [1.0.2] - 1405-08-22
 
 ### Fixed
 
