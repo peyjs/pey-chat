@@ -62,16 +62,6 @@ Empties the conversation and publishes `chat:history-cleared`. Clearing also cut
 
 Returns a read-only copy of the conversation: `{ id, role, parts, status, at }` per message — the user's message carries its `context` in its text part. The displayed history is never trimmed; the sending-history cap (below) affects only what goes to the model.
 
-## The sending-history cap
-
-Configured as `maxTurns` (whole turns) and `maxChars` (total characters), both estimated on characters, not tokens. When building the payload for the model:
-
-- A **turn** is one user message plus the answer(s) that follow it; trimming always drops whole turns, oldest first, and only from what goes to the model.
-- The **system instruction** is counted **inside** the `maxChars` budget (it goes to the model) but never dropped: the budget covers system + history together.
-- The **current message** is never dropped.
-- If the system instruction and the current message alone exceed the cap, nothing is dropped and the request is sent anyway; if the model refuses, `LLM_CONTEXT_TOO_LONG` reaches the UI unchanged — the plugin never shortens anything by itself.
-- An `incomplete` answer goes to the model like any other history entry (the user has seen it and the next question may refer to it).
-
 ## Events
 
 | Event | Data | When |
@@ -101,6 +91,16 @@ Branch on `code`, never on `message`.
 | `systemInstruction` | `string` | No | `''` | Sent with every request; never shown in history; never dropped by the cap. |
 | `maxTurns` | `number` | No | `10` | Sending-history cap in whole turns. |
 | `maxChars` | `number` | No | `20000` | Sending-history cap in characters (estimate; conservative default — the char/token ratio is not linear for Persian). |
+
+### The sending-history cap
+
+Configured as `maxTurns` (whole turns) and `maxChars` (total characters), both estimated on characters, not tokens. When building the payload for the model:
+
+- A **turn** is one user message plus the answer(s) that follow it; trimming always drops whole turns, oldest first, and only from what goes to the model.
+- The **system instruction** is counted **inside** the `maxChars` budget (it goes to the model) but never dropped: the budget covers system + history together.
+- The **current message** is never dropped.
+- If the system instruction and the current message alone exceed the cap, nothing is dropped and the request is sent anyway; if the model refuses, `LLM_CONTEXT_TOO_LONG` reaches the UI unchanged — the plugin never shortens anything by itself.
+- An `incomplete` answer goes to the model like any other history entry (the user has seen it and the next question may refer to it).
 
 ## Business Rules
 

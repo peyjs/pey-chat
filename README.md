@@ -5,27 +5,33 @@
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Bonyan Architecture](https://img.shields.io/badge/bonyan-0.11-56c3bf)](https://github.com/barnevis/bonyan)
 
-## Purpose
+## هدف
 
-Feature plugin of the Pey ecosystem: conversation logic for a single in-memory chat with a language model — history, system instruction, per-message context, progressive answer delivery, stop and retry, and the sending-history cap. Holds no key and no connection settings; `pey.llm` owns those. Presentation stays with the UI.
+افزونه‌ی ویژگی (feature) از زیست‌بوم پی برای منطق یک گفت‌وگوی حافظه‌ای با مدل زبانی: تاریخچه، دستور سیستم، زمینهٔ هر پیام، ارسال تدریجی پاسخ، توقف و تلاش دوباره، و سقف تاریخچهٔ ارسال. کلید و تنظیمات اتصال را ندارد؛ این‌ها با `pey.llm` است و نمایش پاسخ با رابط کاربری.
 
-## Structure
+## ساختار
 
-- `docs/requirements.md` — requirements; the construction source of truth.
-- `manifest.json` — plugin contract (identity, service, events, config).
-- `index.js` — Bonyan two-phase entry point (`prepare` / `activate`).
-- `lib/constants.js` — plugin names, error codes, defaults.
-- `lib/error.js` — standard Bonyan error factory.
-- `lib/chat-history.js` — history normalization and the sending-history cap (trimming).
-- `lib/chat-service.js` — conversation state, stop/retry.
-- `tests/` — unit tests (`node:test`, fake `pey.llm` only).
+- `docs/` — سندهای پروژه.
+- `lib/` — منطق سرویس.
+- `tests/` — آزمون‌های واحد.
+- `index.js` — نقطه‌ی ورود.
+- `manifest.json` — قرارداد افزونه.
 
-## Dependencies
+## وابستگی‌ها
 
-- **Required:** `pey.llm` (`pey.llm.service`).
-- **Optional:** none.
+- **الزامی:** `pey.llm.service` — تمام ارتباط با مدل از این سرویس می‌گذرد.
+- **اختیاری:** ندارد.
 
-## See Also
+## نصب و استفاده
 
-- [docs/requirements.md](docs/requirements.md) for the "what and why", written before the implementation.
-- [docs/reference.md](docs/reference.md) for the full API, events, errors, config, business rules, and constraints.
+افزونه با `manifest.json` و بستهٔ npm به برنامه‌ی میزبان افزوده می‌شود و پس از دو فاز آماده‌سازی و فعال‌سازی، سرویس `pey.chat.service` را عرضه می‌کند. پیکربندی گفت‌وگو (`systemInstruction`، `maxTurns`، `maxChars`) از مانیفست خوانده می‌شود. چگونگی فراخوانی متدها در [مرجع](docs/reference.md) آمده است.
+
+## مجوز
+
+این پروژه با مجوز MIT منتشر شده است؛ متن کامل در [LICENSE](LICENSE).
+
+## سندهای مرتبط
+
+- [معرفی](docs/introduction.md) — شناخت افزونه به زبان ساده.
+- [مرجع](docs/reference.md) — API، رویدادها، خطاها و پیکربندی.
+- [نیازمندی‌ها](docs/requirements.md) — سند ساخت افزونه، مکتوب پیش از پیاده‌سازی.
